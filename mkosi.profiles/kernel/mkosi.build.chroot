@@ -1,0 +1,139 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ ! -f kernel/Makefile ]]; then
+    exit 0
+fi
+
+# shellcheck source=/dev/null
+. "$ARTIFACTDIR"/env
+
+((INCREMENTAL)) && ! ((KERNEL)) && exit 0
+
+if [[ -z "$CONFIG" ]]; then
+    if [[ -f kernel/mkosi.kernel.config ]]; then
+        CONFIG=kernel/mkosi.kernel.config
+    else
+        CONFIG=mkosi.kernel.config
+    fi
+fi
+
+if [[ ! -f "$SRCDIR/$CONFIG" ]]; then
+    echo "Kernel config not found at $CONFIG" >&2
+    exit 1
+fi
+
+echo "Using kernel config $CONFIG"
+
+cd kernel/
+
+# If LOCALVERSION is not set, kbuild will do a very expensive git describe
+# command to determine a git version suffix to append to the kernel version, so
+# let's make sure it is set to the empty string if not set explicitly to avoid
+# that.
+LOCALVERSION=${LOCALVERSION:-""}
+export LOCALVERSION
+
+BUILDDIR="$BUILDDIR/kernel"
+
+echo "Using kernel build directory $BUILDDIR"
+mkdir -p "$BUILDDIR"
+
+# Prevent a distro's custom installkernel script from being used.
+if [[ -x /sbin/installkernel ]]; then
+    mount --bind /dev/null /sbin/installkernel
+fi
+
+EXTRA="O=$BUILDDIR"
+
+if ((LLVM)); then
+    EXTRA="$EXTRA LLVM=1"
+fi
+
+if ! ((INCREMENTAL)); then
+    if [[ ! -f "$BUILDDIR/.config" ]] || \
+        [[ ! -e "$BUILDDIR/mkosi.kernel.config.previous" ]] || \
+        ! cmp --silent "$SRCDIR/$CONFIG" "$BUILDDIR/mkosi.kernel.config.previous" || \
+        [[ -n "$(make -s O=$BUILDDIR listnewconfig)" ]]; then
+            cp "$SRCDIR/$CONFIG" "$BUILDDIR/mkosi.kernel.config.previous"
+            make KCONFIG_ALLCONFIG="$SRCDIR/$CONFIG" O=$BUILDDIR alldefconfig
+    fi
+fi
+
+# Ensure fast incremental builds by fixating these values which usually change for each build.
+export KBUILD_BUILD_TIMESTAMP="Fri Jun  5 15:58:00 CEST 2015"
+export KBUILD_BUILD_HOST="mkosi"
+export KBUILD_BUILD_USER="mkosi"
+
+make $EXTRA -j "$(nproc)"
+
+if ! ((INCREMENTAL)); then
+    echo "Generating compile-commands database"
+    scripts/clang-tools/gen_compile_commands.py -d "$BUILDDIR" -o "$BUILDDIR"/compile_commands.json
+
+    make $EXTRA INSTALL_HDR_PATH="$DESTDIR/usr" headers_install
+fi
+
+if [[ "$ARCHITECTURE" == "arm64" ]]; then
+    INSTALL="zinstall"
+else
+    INSTALL="install"
+fi
+
+KERNEL_RELEASE=$(make $EXTRA -s kernelrelease)
+
+# When doing modules_install, we need to forcefully install everything in
+# /usr/lib. This is because (open)SUSE's depmod requires /usr/lib with no way
+# to work around it, and the upstream kernel make infrastructure cannot
+# auto-detect what it needs to do (there was a patch but it was rejected by
+# upstream). In addition, since other distributions' depmods don't want to use
+# /usr/lib we also need to link /lib -> /usr/lib to ensure builds still work
+# for non-(open)SUSE builds.
+#
+# See <https://github.com/DaanDeMeyer/mkosi-kernel/pull/10> for more details
+# and a link to the patch SUSE carries to fix this problem for their kernel
+# builds. The MODLIB= incantation comes from the SUSE patch.
+
+mkdir -p /tmp/usr
+ln -sf usr/lib /tmp/lib
+ln -sf "$BUILDDIR" /tmp/usr/lib
+mkdir -p "$BUILDDIR/modules/$KERNEL_RELEASE"
+find "$BUILDDIR/modules" -mindepth 1 -maxdepth 1 ! -name "$KERNEL_RELEASE" -type d -exec rm -r {} +
+make $EXTRA INSTALL_MOD_PATH=/tmp MODLIB='$(INSTALL_MOD_PATH)/usr/lib/modules/$(KERNELRELEASE)' modules_install
+
+if ! ((INCREMENTAL)); then
+    mkdir -p "$DESTDIR/usr/lib/modules/$KERNEL_RELEASE"
+    cp \
+        --archive \
+        --no-target-directory \
+        "$BUILDDIR/modules/$KERNEL_RELEASE" \
+        "$DESTDIR/usr/lib/modules/$KERNEL_RELEASE" \
+        --reflink=auto
+    make $EXTRA INSTALL_PATH="$DESTDIR/usr/lib/modules/$KERNEL_RELEASE" "$INSTALL"
+    OUTPUT="$(jq --raw-output .Output <"$MKOSI_CONFIG")"
+fi
+
+if ((SELFTESTS)); then
+    if [[ -n "$SELFTESTS_TARGETS" ]]; then
+        SELFTESTS_TARGETS="TARGETS=$SELFTESTS_TARGETS"
+    else
+        SELFTESTS_TARGETS=""
+    fi
+
+    if [[ -n "$SELFTESTS_SKIP_TARGETS" ]]; then
+        SELFTESTS_SKIP_TARGETS="SKIP_TARGETS=$SELFTESTS_SKIP_TARGETS"
+    else
+        SELFTESTS_SKIP_TARGETS=""
+    fi
+
+    make -C tools/testing/selftests -j "$(nproc)" $EXTRA KSFT_INSTALL_PATH="$DESTDIR/usr/lib/kernel/selftests" $SELFTESTS_TARGETS $SELFTESTS_SKIP_TARGETS
+    if ! ((INCREMENTAL)); then
+        mkdir -p "$DESTDIR/usr/lib/kernel/selftests"
+        make -C tools/testing/selftests -j "$(nproc)" $EXTRA KSFT_INSTALL_PATH="$DESTDIR/usr/lib/kernel/selftests" $SELFTESTS_TARGETS $SELFTESTS_SKIP_TARGETS install
+        mkdir -p "$DESTDIR/usr/bin"
+        ln -sf /usr/lib/kernel/selftests/bpf/bpftool "$DESTDIR/usr/bin/bpftool"
+    fi
+fi
+
+exit 0

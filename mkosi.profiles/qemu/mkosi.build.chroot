@@ -1,0 +1,27 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ ! -f qemu/configure ]]; then
+    exit 0
+fi
+
+# shellcheck source=/dev/null
+. "$ARTIFACTDIR"/env
+
+((INCREMENTAL)) && ! ((QEMU)) && exit 0
+
+if [[ ! -f "$BUILDDIR/qemu/build.ninja" ]]; then
+    mkdir -p "$BUILDDIR/qemu" && cd "$BUILDDIR/qemu"
+    if [[ -z "$QEMU_TARGET_LIST" ]]; then
+        QEMU_TARGET_LIST="x86_64-softmmu,aarch64-softmmu,riscv64-softmmu"
+    fi
+    $SRCDIR/qemu/configure --target-list=$QEMU_TARGET_LIST --prefix=/usr/local
+    cd ..
+fi
+
+ninja -C "$BUILDDIR/qemu" -j$(nproc)
+
+! ((INCREMENTAL)) && ninja -C "${BUILDDIR}/qemu" install
+
+exit 0

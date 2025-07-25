@@ -1,0 +1,9 @@
+mkosi.local.conf
+mkosi.crt
+mkosi.key
+mkosi.tools/
+mkosi.tools.manifest
+!templates/mkosi.local.conf
+
+.venv
+venv

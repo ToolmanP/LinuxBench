@@ -1,0 +1,103 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+TEMP=$( \
+    getopt \
+    -o 'c:ik' \
+    --long 'incremental' \
+    --long 'fstests' \
+    --long 'kernel' \
+    --long 'config' \
+    --long 'btrfs-progs' \
+    --long 'ltp' \
+    --long 'bpfilter' \
+    --long 'bpftrace' \
+    --long 'fio' \
+    --long 'qemu' \
+    --long 'targets' \
+    -n 'mkosi.build' \
+    -- "$@" \
+)
+
+eval set -- "$TEMP"
+unset TEMP
+
+while true; do
+    case "$1" in
+        '-i'|'--incremental')
+            INCREMENTAL=1
+            shift 1
+            continue
+        ;;
+        '--fstests')
+            FSTESTS=1
+            shift 1
+            continue
+        ;;
+        '-k'|'--kernel')
+            KERNEL=1
+            shift 1
+            continue
+        ;;
+        '--qemu')
+            QEMU=1
+            shift 1
+            continue
+        ;;
+        '--targets')
+            QEMU_TARGET_LIST=1
+            shift 2
+            continue
+        ;;
+        '-c'|'--config')
+            CONFIG="$2"
+            shift 2
+            continue
+        ;;
+        '--ltp')
+            LTP=1
+            shift 1
+            continue
+        ;;
+        '--btrfs-progs')
+            BTRFS_PROGS=1
+            shift 1
+            continue
+        ;;
+        '--bpfilter')
+            BPFILTER=1
+            shift 1
+            continue
+        ;;
+        '--bpftrace')
+            BPFTRACE=1
+            shift 1
+            continue
+        ;;
+        '--fio')
+            FIO=1
+            shift 1
+            continue
+        ;;
+        '--')
+            shift
+            break
+        ;;
+        *)
+            exit 1
+        ;;
+    esac
+done
+
+cat >"$ARTIFACTDIR"/env <<EOF
+INCREMENTAL=$INCREMENTAL
+FSTESTS=$FSTESTS
+KERNEL=$KERNEL
+CONFIG=$CONFIG
+LTP=$LTP
+BTRFS_PROGS=$BTRFS_PROGS
+BPFILTER=$BPFILTER
+BPFTRACE=$BPFTRACE
+FIO=$FIO
+EOF

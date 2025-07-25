@@ -1,0 +1,33 @@
+#!/bin/bash
+
+GREEN='\033[0;32m'
+BOLD='\033[1m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+info() {
+	echo -e "${GREEN}[INFO $(date +%H:%M:%S)] $1${NC}"
+}
+
+warn() {
+	echo -e "${RED}[WARN $(date +%H:%M:%S)] $1${NC}"
+}
+
+emph(){
+	echo -e "${BOLD}$1${NC}"
+}
+
+fatal() {
+	echo -e "${RED}$1${NC}" >&2
+	exit 1
+}
+
+printenv() {
+	emph "$(basename $0):"
+	emph "- KERNEL_VERSION=${KERNEL_VERSION}"
+	emph "- PLATFORM=${PLATFORM}"
+	echo
+}
+
+printenv
+export info warn emph fatal

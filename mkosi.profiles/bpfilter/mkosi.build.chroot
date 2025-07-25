@@ -1,0 +1,18 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ ! -f bpfilter/CMakeLists.txt ]]; then
+    exit 0
+fi
+
+# shellcheck source=/dev/null
+. "$ARTIFACTDIR"/env
+
+((INCREMENTAL)) && ! ((BPFILTER)) && exit 0
+
+cmake -S "$SRCDIR/bpfilter" -B "$BUILDDIR/bpfilter"
+cmake --build "$BUILDDIR/bpfilter"
+! ((INCREMENTAL)) && cmake --install "$BUILDDIR/bpfilter" --prefix /usr
+
+exit 0

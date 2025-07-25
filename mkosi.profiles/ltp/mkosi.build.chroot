@@ -1,0 +1,39 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ ! -f ltp/Makefile ]]; then
+    exit 0
+fi
+
+# shellcheck source=/dev/null
+. "$ARTIFACTDIR"/env
+
+((INCREMENTAL)) && ! ((LTP)) && exit 0
+
+mkdir -p "$BUILDDIR/ltp"
+cd "$BUILDDIR/ltp"
+
+if [[ ! -f "$SRCDIR/ltp/configure" ]]; then
+    rm -f config.status
+    make -C "$SRCDIR/ltp" autotools
+fi
+
+if [[ ! -f config.status ]]; then
+    "$SRCDIR/ltp/configure" --disable-metadata
+fi
+
+make \
+    -j "$(nproc)" \
+    -f "$SRCDIR/ltp/Makefile" \
+    "top_srcdir=$SRCDIR/ltp" \
+    "top_builddir=$PWD" \
+
+! ((INCREMENTAL)) && \
+    make \
+    -f "$SRCDIR/ltp/Makefile" \
+    "top_srcdir=$SRCDIR/ltp" \
+    "top_builddir=$PWD" \
+    install
+
+exit 0

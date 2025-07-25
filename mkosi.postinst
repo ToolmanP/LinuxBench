@@ -1,0 +1,5 @@
+#!/bin/sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+mkosi-chroot sh -c "command -v authselect >/dev/null && authselect select minimal || true"

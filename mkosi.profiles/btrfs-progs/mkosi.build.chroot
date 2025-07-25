@@ -1,0 +1,41 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ ! -f btrfs-progs/autogen.sh ]]; then
+    exit 0
+fi
+
+# shellcheck source=/dev/null
+. "$ARTIFACTDIR"/env
+
+((INCREMENTAL)) && ! ((BTRFS_PROGS)) && exit 0
+
+ln -sf /usr/bin/python3 /usr/bin/python
+
+mkdir -p "$BUILDDIR/btrfs-progs" "$BUILDDIR/workdir/btrfs-progs"
+mount \
+    overlay \
+    "$SRCDIR/btrfs-progs" \
+    -t overlay \
+    -o "lowerdir=$SRCDIR/btrfs-progs,upperdir=$BUILDDIR/btrfs-progs,workdir=$BUILDDIR/workdir/btrfs-progs,userxattr"
+cd "$SRCDIR/btrfs-progs"
+
+if [[ ! -f ./configure ]]; then
+    ./autogen.sh
+fi
+
+if [[ ! -f ./Makefile.inc ]]; then
+    ./configure \
+            --disable-documentation \
+            --enable-experimental \
+            --bindir="$(realpath /usr/sbin)" \
+            --prefix=/usr \
+            --exec-prefix=/usr \
+            --disable-python
+fi
+
+make -j "$(nproc)"
+! ((INCREMENTAL)) && make install
+
+exit 0

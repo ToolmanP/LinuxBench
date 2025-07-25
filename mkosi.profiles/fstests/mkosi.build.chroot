@@ -1,0 +1,32 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ ! -f fstests/Makefile ]]; then
+    exit 0
+fi
+
+# shellcheck source=/dev/null
+. "$ARTIFACTDIR"/env
+
+((INCREMENTAL)) && ! ((FSTESTS)) && exit 0
+
+mkdir -p "$BUILDDIR/fstests" "$BUILDDIR/workdir/fstests"
+mount \
+    overlay \
+    "$SRCDIR/fstests" \
+    -t overlay \
+    -o "lowerdir=$SRCDIR/fstests,upperdir=$BUILDDIR/fstests,workdir=$BUILDDIR/workdir/fstests,userxattr"
+cd "$SRCDIR/fstests"
+
+make -j "$(nproc)"
+
+((INCREMENTAL)) && exit 0
+
+# make install with DESTDIR is completely broken in fstests, so let's hack around it and bind mount the
+# location we want to the files to get installed to to /var/lib/xfstests.
+mkdir -p /work/dest/var/lib/xfstests /var/lib/xfstests
+mount --bind /work/dest/var/lib/xfstests /var/lib/xfstests
+DESTDIR= make install
+
+exit 0

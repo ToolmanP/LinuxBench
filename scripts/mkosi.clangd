@@ -1,0 +1,48 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+set -eux
+
+if [[ -z "${MKOSI_CONFIG-}" ]]; then
+    # If there's a mkosi.conf or mkosi.local.conf in the current working
+    # directory, assume that Include=mkosi-kernel is used to include the
+    # mkosi-kernel mkosi configuration. Otherwise, assume the user is
+    # running mkosi directly from the mkosi-kernel repository.
+    if [[ -f mkosi.conf ]] || [[ -f mkosi.local.conf ]]; then
+        DIRECTORY="$PWD"
+    else
+        DIRECTORY="$(dirname "$(realpath "$0")")"
+    fi
+
+    # shellcheck disable=SC2093 # exec not last command
+    exec mkosi \
+        --directory "$DIRECTORY" \
+        --build-script= \
+        --build-script="$(realpath "$0")" \
+        --rerun-build-scripts \
+        build \
+        -- \
+        "$@"
+fi
+
+PROFILE="$1"
+shift # shift away profile
+
+HOST_BUILDDIR="$(jq -r .BuildDirectory "$MKOSI_CONFIG")"
+HOST_BUILDSUBDIR="$(jq -r .BuildSubdirectory "$MKOSI_CONFIG")"
+
+BUILD_SOURCE_MAPPINGS="$(jq -r '
+    .BuildSources
+    | sort_by(.Target)
+    | reverse
+    | map(.Source + "=/work/src/" + .Target)
+    | join(",")
+' "$MKOSI_CONFIG")"
+
+exec mkosi-chroot env --chdir="$SRCDIR/$PROFILE" clangd \
+    --enable-config \
+    --compile-commands-dir=/work/build/"$PROFILE" \
+    --path-mappings="\
+$BUILD_SOURCE_MAPPINGS,\
+$HOST_BUILDDIR/$HOST_BUILDSUBDIR=/work/build" \
+    "$@"
