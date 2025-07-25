@@ -15,7 +15,7 @@ TEMP=$( \
     --long 'bpftrace' \
     --long 'fio' \
     --long 'qemu' \
-    --long 'targets' \
+    --long 'qemu_targets' \
     -n 'mkosi.build' \
     -- "$@" \
 )
@@ -45,8 +45,8 @@ while true; do
             shift 1
             continue
         ;;
-        '--targets')
-            QEMU_TARGET_LIST=1
+        '--qemu_targets')
+            QEMU_TARGET_LIST=$2
             shift 2
             continue
         ;;
@@ -100,4 +100,6 @@ BTRFS_PROGS=$BTRFS_PROGS
 BPFILTER=$BPFILTER
 BPFTRACE=$BPFTRACE
 FIO=$FIO
+QEMU=$QEMU
+QEMU_TARGET_LIST=$QEMU_TARGET_LIST
 EOF
