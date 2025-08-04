@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -e
+
+((INCREMENTAL)) && ! ((VIRTIOFSD)) && exit 0
+
+cd virtiofsd
+cargo build --target-dir="${BUILDDIR}"/virtiofsd --release
+
+mkdir -p "${DESTDIR}"/usr/libexec
+
+! ((INCREMENTAL)) && cp "${BUILDDIR}"/virtiofsd/release/virtiofsd "${DESTDIR}"/usr/libexec/virtiofsd

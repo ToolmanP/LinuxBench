@@ -57,7 +57,7 @@ if ! ((INCREMENTAL)); then
         ! cmp --silent "$SRCDIR/$CONFIG" "$BUILDDIR/mkosi.kernel.config.previous" || \
         [[ -n "$(make -s O=$BUILDDIR listnewconfig)" ]]; then
             cp "$SRCDIR/$CONFIG" "$BUILDDIR/mkosi.kernel.config.previous"
-            make KCONFIG_ALLCONFIG="$SRCDIR/$CONFIG" O=$BUILDDIR alldefconfig
+            make $EXTRA KCONFIG_ALLCONFIG="$SRCDIR/$CONFIG" alldefconfig
     fi
 fi
 

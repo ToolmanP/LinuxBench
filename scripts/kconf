@@ -1,0 +1,79 @@
+#!/bin/bash
+
+. ${SHELLENV}
+
+TEMP=$(
+	getopt \
+		-o 'k:c:' \
+		--long 'kernel' \
+		--long 'config' \
+		--long 'llvm' \
+		-n 'kconf' \
+		-- "$@"
+)
+
+KERNEL=''
+CONFIG=''
+LLVM=0
+
+help() {
+	emph "Usage: kconf <command>"
+	emph "Commands:"
+	cat <<EOF
+		-k <kernel>   - Specify the kernel path.
+		-c <config>   - Specify the kernel configuration file.
+		--llvm        - Use LLVM for the build.
+EOF
+}
+if ! eval set -- "$TEMP"; then
+	help
+	exit 1
+fi
+
+unset TEMP
+
+while true; do
+	case "$1" in
+	'-k' | '--kernel')
+		KERNEL=$2
+		shift 2
+		continue
+		;;
+	'-c' | '--config')
+		CONFIG=$2
+		shift 2
+		continue
+		;;
+	'--llvm')
+		LLVM=1
+		shift
+		continue
+		;;
+	'--')
+		shift
+		break
+		;;
+	*)
+		help
+		exit 1
+		;;
+	esac
+done
+
+if [[ -z "$KERNEL" || -z "$CONFIG" ]]; then
+	warn "Kernel path and config is required."
+	exit 1
+fi
+
+
+TEMP=$(mktemp -d)
+
+if [[ $LLVM -eq 1 ]]; then
+	LLVM="LLVM=1"
+else
+	LLVM=""
+fi
+make -C "${KERNEL}" ${LLVM} O="${KERNEL_O}" KCONFIG_CONFIG="$(realpath ${CONFIG})" menuconfig
+make -C "${KERNEL}" ${LLVM} O="${KERNEL_O}" KCONFIG_CONFIG="$(realpath ${CONFIG})" savedefconfig
+mv ${KERNEL_O}/defconfig ${CONFIG}
+rm ${CONFIG}.old || true

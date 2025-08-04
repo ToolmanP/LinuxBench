@@ -1,0 +1,14 @@
+{
+    "runtimes": {
+	"runsc": {
+            "path": "/usr/local/bin/runsc"
+       	},
+       	"runv": {
+	    "runtimeType": "/usr/local/bin/containerd-shim-kata-v2"
+       	},
+       	"crun": {
+	    "path": "/usr/bin/crun"
+       	}
+    }
+}
+

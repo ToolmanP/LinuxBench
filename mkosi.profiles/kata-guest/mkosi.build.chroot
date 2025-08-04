@@ -1,0 +1,71 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ ! -f kata-guest/Makefile ]]; then
+    exit 0
+fi
+
+# shellcheck source=/dev/null
+. "$ARTIFACTDIR"/env
+
+((INCREMENTAL)) && ! ((KATA_GUEST)) && exit 0
+
+if [[ ! -f "$SRCDIR/$KATA_GUEST_CONFIG" ]]; then
+    echo "Kernel config not found at $KATA_GUEST_CONFIG" >&2
+    exit 1
+fi
+
+echo "Using kernel config $KATA_GUEST_CONFIG"
+
+cd kata-guest/
+
+# If LOCALVERSION is not set, kbuild will do a very expensive git describe
+# command to determine a git version suffix to append to the kernel version, so
+# let's make sure it is set to the empty string if not set explicitly to avoid
+# that.
+LOCALVERSION=${LOCALVERSION:-""}
+export LOCALVERSION
+
+BUILDDIR="$BUILDDIR/kata-guest"
+
+echo "Using kernel build directory $BUILDDIR"
+mkdir -p "$BUILDDIR"
+
+# Prevent a distro's custom installkernel script from being used.
+if [[ -x /sbin/installkernel ]]; then
+    mount --bind /dev/null /sbin/installkernel
+fi
+
+EXTRA="O=$BUILDDIR"
+
+if ((LLVM)); then
+    EXTRA="$EXTRA LLVM=1"
+fi
+
+if ! ((INCREMENTAL)); then
+    if [[ ! -f "$BUILDDIR/.config" ]] || \
+        [[ ! -e "$BUILDDIR/mkosi.kernel.config.previous" ]] || \
+        ! cmp --silent "$SRCDIR/$KATA_GUEST_CONFIG" "$BUILDDIR/mkosi.kernel.config.previous" || \
+        [[ -n "$(make -s O=$BUILDDIR listnewconfig)" ]]; then
+            cp "$SRCDIR/$KATA_GUEST_CONFIG" "$BUILDDIR/mkosi.kernel.config.previous"
+            make $EXTRA KCONFIG_ALLCONFIG="$SRCDIR/$KATA_GUEST_CONFIG" alldefconfig
+    fi
+fi
+
+# Ensure fast incremental builds by fixating these values which usually change for each build.
+export KBUILD_BUILD_TIMESTAMP="Fri Jun  5 15:58:00 CEST 2015"
+export KBUILD_BUILD_HOST="mkosi"
+export KBUILD_BUILD_USER="mkosi"
+
+make $EXTRA -j "$(nproc)"
+
+if ! ((INCREMENTAL)); then
+    echo "Generating compile-commands database"
+    scripts/clang-tools/gen_compile_commands.py -d "$BUILDDIR" -o "$BUILDDIR"/compile_commands.json
+fi
+
+mkdir -p "${DESTDIR}/opt/kata-guest"
+cp "$BUILDDIR"/vmlinux "${DESTDIR}/opt/kata-guest/vmlinux.custom.container"
+
+exit 0

@@ -1,21 +1,26 @@
 #!/bin/bash
 
-. ${SHELLENV}
+set -e
 
-LIBVIRT_XML_IN=${TWORKSPACE}/configs/buildroot/${PLATFORM}.libvirt.xml.in
-LIBVIRT_XML=${BR2_O}/${PLATFORM}.libvirt.xml
-ROOTFS_DEFCONFIG=${TWORKSPACE}/configs/buildroot/rootfs.defconfig
-PLATFORM_DEFCONFIG=${TWORKSPACE}/configs/buildroot/${PLATFORM}_defconfig
-BUILDROOT_DIR=${TWORKSPACE}/buildroot
-KERNEL_DIR=${TWORKSPACE}/kernel
-KERNEL_CONFIG=${TWORKSPACE}/configs/buildroot/kernel/${PLATFORM}/${KERNEL_VERSION}.config
+# shellcheck disable=SC1090
+. "${SHELLENV}"
+
+CONFIG_DIR="${LWORKSPACE}/packages/configs"
+LIBVIRT_XML_IN="${CONFIG_DIR}/buildroot/${PLATFORM}.libvirt.xml.in"
+LIBVIRT_XML="${BR2_O}/${PLATFORM}.libvirt.xml"
+ROOTFS_DEFCONFIG="${CONFIG_DIR}/buildroot/rootfs.defconfig"
+PLATFORM_DEFCONFIG="${CONFIG_DIR}/buildroot/${PLATFORM}_defconfig"
+
+BUILDROOT_DIR="${LWORKSPACE}/buildroot"
+KERNEL_DIR="${LWORKSPACE}/packages/kernel"
+KERNEL_CONFIG="${CONFIG_DIR}/buildroot/kernel/${PLATFORM}/${KERNEL_VERSION}.config"
+
 LINUX_TAR_GZ=${BR2_O}/linux.tar.gz
-
 
 help() {
 	emph "Usage: br2ctl <command>"
 	emph "Commands:"
-	cat << EOF
+	cat <<EOF
 	prepare   - Prepare Buildroot environment for the specified platform.
 	build     - Build Buildroot for the specified platform.
 	define    - Define libvirt XML configuration for the platform.
@@ -29,51 +34,51 @@ case "$1" in
 prepare)
 
 	info "Preparing Buildroot environment for ${PLATFORM}..."
-	mkdir -p ${BR2_O}
+	mkdir -p "${BR2_O}"
 
 	info "Copying Buildroot configuration files..."
-	pushd ${BUILDROOT_DIR} &>/dev/null
-	support/kconfig/merge_config.sh ${ROOTFS_DEFCONFIG} ${PLATFORM_DEFCONFIG}
-	cp .config ${BR2_O}
+	pushd "${BUILDROOT_DIR}" &>/dev/null
+	support/kconfig/merge_config.sh "${ROOTFS_DEFCONFIG}" "${PLATFORM_DEFCONFIG}"
+	cp .config "${BR2_O}"
 	popd &>/dev/null
 
 	info "Archiving Linux kernel source..."
-	pushd ${KERNEL_DIR} &>/dev/null
-	git archive --output=${LINUX_TAR_GZ} --prefix=linux/ ${KERNEL_VERSION}
+	pushd "${KERNEL_DIR}" &>/dev/null
+	git archive --output="${LINUX_TAR_GZ}" --prefix=linux/ "${KERNEL_VERSION}"
 	popd &>/dev/null
 
 	info "Copying Linux kernel configuration..."
-	cp ${KERNEL_CONFIG} ${BR2_O}/linux.config
+	cp "${KERNEL_CONFIG}" "${BR2_O}/linux.config"
 
 	if [[ -f ${LIBVIRT_XML_IN} ]]; then
 		info "Generating libvirt XML configuration..."
-		envsubst <${LIBVIRT_XML_IN} >${LIBVIRT_XML}
+		envsubst <"${LIBVIRT_XML_IN}" >"${LIBVIRT_XML}"
 	fi
 	emph "Buildroot environment prepared successfully."
 	;;
 build)
 	info "Building Buildroot for ${PLATFORM}..."
-	make -C $TWORKSPACE/buildroot O=${BR2_O}
+	make -C "${LWORKSPACE}/buildroot" O="${BR2_O}"
 	emph "Buildroot build completed successfully."
 	;;
 define)
 	if [[ -f ${LIBVIRT_XML} ]]; then
-		virsh define ${LIBVIRT_XML} || :
+		virsh define "${LIBVIRT_XML}" || :
 	else
 		fatal "Libvirt XML configuration file not found: ${LIBVIRT_XML}"
 	fi
 	;;
 start)
 	if [[ -f ${LIBVIRT_XML} ]]; then
-		DOMAIN_NAME=$(cat ${LIBVIRT_XML} | grep -oPm1 "(?<=<name>)[^<]+")
-		virsh start ${DOMAIN_NAME} --console || :
+		DOMAIN_NAME=$(grep -oPm1 "(?<=<name>)[^<]+" "${LIBVIRT_XML}")
+		virsh start "${DOMAIN_NAME}" --console || :
 	fi
 	;;
 remove)
 	if [[ -f ${LIBVIRT_XML} ]]; then
-		DOMAIN_NAME=$(cat ${LIBVIRT_XML} | grep -oPm1 "(?<=<name>)[^<]+")
-		virsh destroy ${DOMAIN_NAME} || :
-		virsh undefine ${DOMAIN_NAME} || :
+		DOMAIN_NAME=$(grep -oPm1 "(?<=<name>)[^<]+" "${LIBVIRT_XML}")
+		virsh destroy "${DOMAIN_NAME}" || :
+		virsh undefine "${DOMAIN_NAME}" || :
 	fi
 	;;
 *)
