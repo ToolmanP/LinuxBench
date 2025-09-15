@@ -1,0 +1,11 @@
+#!/bin/bash
+
+if [[ ! -f "${BUILDDIR}"/nerdctl.tar.xz ]]; then
+	VERSION=$(curl -s https://api.github.com/repos/containerd/nerdctl/releases/latest |
+		grep '"tag_name":' |
+		sed -E 's/.*"([^"]+)".*/\1/')
+	curl -SL https://github.com/containerd/nerdctl/releases/download/"${VERSION}"/nerdctl-"${VERSION#v}"-linux-amd64.tar.gz -o "${BUILDDIR}"/nerdctl.tar.xz
+fi
+
+mkdir -p "${DESTDIR}/usr/local/bin/"
+tar -xvf "${BUILDDIR}"/nerdctl.tar.xz -C "${DESTDIR}/usr/local/bin/" --wildcards "nerdctl"

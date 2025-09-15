@@ -66,14 +66,14 @@ if [[ -z "$KERNEL" || -z "$CONFIG" ]]; then
 fi
 
 
-TEMP=$(mktemp -d)
+EXTRA="O=${KERNEL_O} KCONFIG_CONFIG=$(realpath ${CONFIG})"
 
 if [[ $LLVM -eq 1 ]]; then
-	LLVM="LLVM=1"
-else
-	LLVM=""
+	EXTRA="${EXTRA} LLVM=1"
 fi
-make -C "${KERNEL}" ${LLVM} O="${KERNEL_O}" KCONFIG_CONFIG="$(realpath ${CONFIG})" menuconfig
-make -C "${KERNEL}" ${LLVM} O="${KERNEL_O}" KCONFIG_CONFIG="$(realpath ${CONFIG})" savedefconfig
+
+make -C "${KERNEL}" ${EXTRA} menuconfig
+make -C "${KERNEL}" ${EXTRA} savedefconfig
+
 mv ${KERNEL_O}/defconfig ${CONFIG}
 rm ${CONFIG}.old || true

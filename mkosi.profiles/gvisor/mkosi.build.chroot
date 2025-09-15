@@ -2,6 +2,9 @@
 
 set -e
 
+# shellcheck source=/dev/null
+. "$ARTIFACTDIR"/env
+
 ((INCREMENTAL)) && ! ((GVISOR)) && exit 0
 
 mkdir -p "${BUILDDIR}/gvisor"
@@ -13,12 +16,11 @@ mkdir -p "${BUILDDIR}/gvisor/cache"
 export GOMODCACHE="${BUILDDIR}/gvisor/modcache"
 export GOCACHE="${BUILDDIR}/gvisor/cache"
 
-echo "module runsc" >go.mod
-GO111MODULE=on go get gvisor.dev/gvisor/runsc@go
-
+echo "module runsc"  > go.mod
 CGO_ENABLED=0 GO111MODULE=on go build -o "${BUILDDIR}/gvisor/runsc" gvisor.dev/gvisor/runsc
 GO111MODULE=on go build -o "${BUILDDIR}/gvisor/containerd-shim-runsc-v1" gvisor.dev/gvisor/shim
 
 if ! ((INCREMENTAL)); then
 	cp "${BUILDDIR}"/gvisor/runsc "${DESTDIR}"/usr/local/bin/
+	cp "${BUILDDIR}"/gvisor/containerd-shim-runsc-v1 "${DESTDIR}"/usr/local/bin/
 fi

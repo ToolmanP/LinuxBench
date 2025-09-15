@@ -1,0 +1,3 @@
+#!/usr/bin/bash
+
+nerdctl run --runtime=io.containerd.kata.v2 "$@"

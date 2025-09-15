@@ -2,11 +2,18 @@
 
 set -e
 
+# shellcheck source=/dev/null
+. "$ARTIFACTDIR"/env
+
 ((INCREMENTAL)) && ! ((VIRTIOFSD)) && exit 0
 
 cd virtiofsd
-cargo build --target-dir="${BUILDDIR}"/virtiofsd --release
+mkdir -p "${BUILDDIR}"/virtiofsd/build_dir
+mkdir -p "${BUILDDIR}"/virtiofsd/source_dir
+
+export CARGO_HOME="${BUILDDIR}"/virtiofsd/build_dir
+cargo build --target-dir="${BUILDDIR}"/virtiofsd/build_dir --release
 
 mkdir -p "${DESTDIR}"/usr/libexec
 
-! ((INCREMENTAL)) && cp "${BUILDDIR}"/virtiofsd/release/virtiofsd "${DESTDIR}"/usr/libexec/virtiofsd
+! ((INCREMENTAL)) && cp "${BUILDDIR}"/virtiofsd/build_dir/release/virtiofsd "${DESTDIR}"/usr/libexec/virtiofsd
