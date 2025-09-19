@@ -20,7 +20,7 @@ BUILD_SOURCE_MAPPINGS="$(jq -r '
     .BuildSources
     | sort_by(.Target)
     | reverse
-    | map(.Source + "=/work/src" + .Target)
+    | map(.Source + "=/work/src/" + .Target)
     | join(",")
 ' "${MKOSI_CONFIG}")"
 
