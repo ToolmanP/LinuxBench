@@ -47,7 +47,7 @@ fi
 
 EXTRA="O=$BUILDDIR"
 
-if ((LLVM)); then
+if [[ $LLVM -eq 1 ]]; then
     EXTRA="$EXTRA LLVM=1"
 fi
 
