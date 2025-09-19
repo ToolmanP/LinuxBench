@@ -5,7 +5,7 @@ set -e
 # shellcheck source=/dev/null
 . "$ARTIFACTDIR"/env
 
-((INCREMENTAL)) && ((KATA)) && exit 0
+((INCREMENTAL)) && ! ((KATA)) && exit 0
 
 KATA_CONF="${KATA_CONF:-/opt/kata/share/defaults/kata-containers/configuration.toml}"
 
